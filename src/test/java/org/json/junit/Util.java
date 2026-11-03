@@ -117,4 +117,35 @@ public class Util {
             );
         }
     }
+
+    /**
+     * Runs the given task on a dedicated thread with a large (8 MB) stack and
+     * returns whatever the task threw. Tests that parse deeply nested input use
+     * this so their outcome does not depend on the stack size of the test JVM,
+     * which may be run with a small stack (for example -Xss512k).
+     * @param runnable the task to run
+     * @return the Throwable thrown by the task, or <code>null</code> if it
+     *  completed normally
+     */
+    public static Throwable throwableFromLargeStack(final Runnable runnable) {
+        final Throwable[] thrown = new Throwable[1];
+        Thread thread = new Thread(null, new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    runnable.run();
+                } catch (Throwable t) {
+                    thrown[0] = t;
+                }
+            }
+        }, "large-stack-test", 8L * 1024 * 1024);
+        thread.start();
+        try {
+            thread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for the large stack test thread", e);
+        }
+        return thrown[0];
+    }
 }
